@@ -5,7 +5,7 @@ date:2017/12/15
 """
 from .base import route
 from flask import Blueprint, request
-from ..entities.models import Sh_A_Share, db
+from ..entities.models import Sh_A_Share, db, Sh_Share_Warning
 from sqlalchemy import func, extract
 from datetime import datetime, timedelta
 from jieba import analyse
@@ -15,11 +15,6 @@ from decimal import Decimal
 
 service_name = 'bulletin'
 bp = Blueprint(service_name, __name__, url_prefix="/api/" + service_name)
-path = os.path.join(os.path.dirname(__file__), 'static')
-userdict = os.path.join(path, 'CompanyName.txt')
-jieba.load_userdict(userdict)
-analyse.set_stop_words(os.path.join(path, 'StopWords.txt'))
-
 
 
 @route(bp, '/', methods=["GET"])
@@ -49,6 +44,11 @@ def get_major():
 @route(bp, '/warning/probability', methods=["GET"])
 def warning():
     result = {}
+    path = os.path.join(os.path.dirname(__file__), 'static')
+    userdict = os.path.join(path, 'CompanyName.txt')
+    jieba.load_userdict(userdict)
+    analyse.set_stop_words(os.path.join(path, 'StopWords.txt'))
+
     keyword = request.args.get("keyword", '600004')
     date = datetime.strftime(datetime.now() - timedelta(days=180), "%Y-%m-%d")
     qs = db.session.query(Sh_A_Share.title).filter(Sh_A_Share.bulletindate >= date,
@@ -59,11 +59,20 @@ def warning():
     tag_1 = jieba.analyse.extract_tags(data, topK=20, withWeight=False, allowPOS=('n', 'g', 'an'))
     tag_2 = jieba.analyse.textrank(data, topK=20, withWeight=False, allowPOS=('n', 'g', 'an'))
     tag = set(tag_1) | set(tag_2)
-    tagpath = os.path.join(path,"Tag.txt")
+    tagpath = os.path.join(path, "Tag.txt")
     tags = set()
-    with open(tagpath,'r') as f:
+    with open(tagpath, 'r') as f:
         for i in f.readlines():
             tags.add(i.strip().decode('utf-8'))
     probability = (Decimal(len(tag & tags)) / Decimal(len(tags))).quantize(Decimal('0.0000'))
-    result["pro"] = float(probability*100)
+    result["pro"] = float(probability * 100)
+    return result
+
+
+@route(bp, '/warning/list', methods=["GET"])
+def warning_list():
+    result = {"data": []}
+    qs = db.session.query(Sh_Share_Warning).order_by(Sh_Share_Warning.probability.desc()).slice(0, 20).all()
+    result["data"] = map(lambda i: {"stockcode": i.stockcode,
+                                    "name": i.stockname, "probability": float(i.probability)},qs)
     return result
