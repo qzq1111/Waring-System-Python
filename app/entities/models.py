@@ -35,3 +35,9 @@ class Sh_Share(db.Model):
     companycode = db.Column(db.String(7), nullable=True)
     companyname = db.Column(db.String(30), nullable=True)
     datastatus = db.Column(db.Integer, nullable=True)
+
+class Sh_Share_Warning(db.Model):
+    __tablename__ = 'sh_share_warning'
+    stockcode = db.Column(db.String(6), primary_key=True)
+    stockname = db.Column(db.String(30), nullable=True)
+    datastatus = db.Column(db.Integer, nullable=True)
