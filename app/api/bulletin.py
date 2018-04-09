@@ -10,6 +10,9 @@ from sqlalchemy import func, extract
 from datetime import datetime, timedelta
 from jieba import analyse
 import jieba
+from wordcloud import WordCloud
+from PIL import Image, ImageDraw, ImageFont
+
 import os
 from decimal import Decimal
 
@@ -43,30 +46,79 @@ def get_major():
 
 @route(bp, '/warning/probability', methods=["GET"])
 def warning():
-    result = {}
-    path = os.path.join(os.path.dirname(__file__), 'static')
-    userdict = os.path.join(path, 'CompanyName.txt')
-    jieba.load_userdict(userdict)
-    analyse.set_stop_words(os.path.join(path, 'StopWords.txt'))
-
-    keyword = request.args.get("keyword", '600004')
+    result = {"pro": 0.0,"url":""}
+    code = request.args.get("keyword", '600000')
     date = datetime.strftime(datetime.now() - timedelta(days=180), "%Y-%m-%d")
     qs = db.session.query(Sh_A_Share.title).filter(Sh_A_Share.bulletindate >= date,
-                                                   Sh_A_Share.stockcode == keyword).all()
+                                                   Sh_A_Share.stockcode == code).all()
     data = ''
     for i in qs:
         data = data + i.title + '\n'
-    tag_1 = jieba.analyse.extract_tags(data, topK=20, withWeight=False, allowPOS=('n', 'g', 'an'))
-    tag_2 = jieba.analyse.textrank(data, topK=20, withWeight=False, allowPOS=('n', 'g', 'an'))
-    tag = set(tag_1) | set(tag_2)
-    tagpath = os.path.join(path, "Tag.txt")
-    tags = set()
-    with open(tagpath, 'r') as f:
-        for i in f.readlines():
-            tags.add(i.strip().decode('utf-8'))
-    probability = (Decimal(len(tag & tags)) / Decimal(len(tags))).quantize(Decimal('0.0000'))
-    result["pro"] = float(probability * 100)
+    if data:
+        jieba.load_userdict(os.path.join(os.path.join(os.path.dirname(__file__), 'static'), 'CompanyName.txt'))
+        analyse.set_stop_words(os.path.join(os.path.join(os.path.dirname(__file__), 'static'), 'StopWords.txt'))
+        cut_keyword = jieba.analyse.textrank(data, topK=100, withWeight=True, allowPOS=('n', 'g', 'an'))
+        keywords = dict()
+        for key in cut_keyword:
+            keywords[key[0]] = key[1]
+        result["pro"] = calculate_probability(keywords=keywords)
+        result["url"] = "http://39.108.60.79/image/{}.png".format(code)
+        cloud(code=code, keywords=keywords)
+
     return result
+
+
+def calculate_probability(keywords):
+    """
+    计算概率
+    :param keywords:
+    :return:
+    """
+    tags_dict = dict()
+    with open(os.path.join(os.path.join(os.path.dirname(__file__), 'static'), "TexTrankTags.txt"), 'r') as f:
+        for i in f.readlines():
+            k, v = i.strip().split(',')
+            tags_dict[k.decode("utf-8")] = float(v)
+    sum_ = Decimal(0)
+    for tag in set(keywords.keys()) & set(tags_dict.keys()):
+        sum_ += Decimal(tags_dict[tag])
+    probability = (sum_ / Decimal(sum(tags_dict.values()))).quantize(Decimal('0.0000'))
+    return float(probability * 100)
+
+
+def cloud(code, keywords):
+    """
+    生成词云图片
+    :param code:
+    :param keywords:
+    :return:
+    """
+    path = os.path.join(os.path.dirname(__file__), 'static')
+    font = os.path.join(path, "simhei.ttf")
+    image_path = os.path.join(os.path.dirname(__file__), 'image')
+    image = os.path.join(image_path, "{}.png".format(code))
+    wc = WordCloud(font_path=font, background_color='white', width=650,
+                   height=300, max_font_size=80,
+                   max_words=100)
+    wc.generate_from_frequencies(keywords)
+    img = Image.new(mode="RGBA", size=(1500, 350), color=(255, 255, 255))
+    tag_img = Image.open(fp=os.path.join(image_path, "Tags.png"))
+    code_img = wc.to_image()
+    img.paste(tag_img, box=(100, 50))
+    img.paste(code_img, box=(800, 50))
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.truetype(font=font, size=42)
+    title = u"关\n键\n字\n词\n云\n对\n比\n"
+    tag_title = u"历史关键字词云"
+    code_title = u"{}关键字词云".format(code)
+    draw.line(xy=[(95, 0), (95, 700)], width=1, fill=(0, 0, 0))
+    draw.line(xy=[(790, 0), (790, 700)], width=1, fill=(0, 0, 0))
+    draw.line(xy=[(95, 45), (1500, 45)], width=1, fill=(0, 0, 0))
+    draw.line(xy=[(95, 350), (1500, 350)], width=1, fill=(0, 0, 0))
+    draw.text(xy=(25, 25), text=title, font=font, fill=(255, 0, 0))
+    draw.text(xy=(300, 5), text=tag_title, font=font, fill=(255, 0, 0))
+    draw.text(xy=(1000, 5), text=code_title, font=font, fill=(255, 0, 0))
+    img.save(image)
 
 
 @route(bp, '/warning/list', methods=["GET"])
@@ -74,5 +126,5 @@ def warning_list():
     result = {"data": []}
     qs = db.session.query(Sh_Share_Warning).order_by(Sh_Share_Warning.probability.desc()).slice(0, 20).all()
     result["data"] = map(lambda i: {"stockcode": i.stockcode,
-                                    "name": i.stockname, "probability": float(i.probability)},qs)
+                                    "name": i.stockname, "probability": float(i.probability)}, qs)
     return result

@@ -56,15 +56,25 @@ def stat():
     最近五天的公告数
     :return:
     """
-    result = {}
+    result = {"data": []}
 
     date = datetime.strftime(datetime.now() - timedelta(days=7), "%Y-%m-%d")
-    sql = "SELECT bulletindate as date ,COUNT(0) AS count FROM sh_a_share WHERE bulletindate >='{}' GROUP BY bulletindate;".format(
-        date)
-    data = db.session.execute(sql)
-    result["data"] = map(lambda x: dict(date=str(x.date), count=x.count), data)
+    sql = "SELECT bulletindate as date ,COUNT(0) AS count FROM sh_a_share " \
+          "WHERE bulletindate >='{}' GROUP BY bulletindate;".format(date)
 
-    date = datetime.strftime(datetime.now() - timedelta(days=1), "%Y-%m-%d")
+    date = [datetime.strftime(datetime.now() - timedelta(days=i), "%Y-%m-%d") for i in range(1, 8)]
+
+    data = db.session.execute(sql)
+    flag = []
+    for i in data:
+        flag.append(str(i.date))
+        result["data"].append(dict(date=str(i.date), count=i.count))
+    date = set(date) - set(flag)
+    for i in date:
+        result["data"].append(dict(date=i, count=0))
+    result["data"].sort(cmp=None, key=lambda x: x["date"], reverse=False)
+
+    date = datetime.strftime(datetime.now(), "%Y-%m-%d")
     sql = "SELECT COUNT(0) as count  FROM sh_a_share WHERE bulletindate ='{}' ".format(date)
     qs_recently = db.session.execute(sql).scalar()
     result["recently_total"] = qs_recently
