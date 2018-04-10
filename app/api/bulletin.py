@@ -12,7 +12,7 @@ from jieba import analyse
 import jieba
 from wordcloud import WordCloud
 from PIL import Image, ImageDraw, ImageFont
-
+import random
 import os
 from decimal import Decimal
 
@@ -85,6 +85,7 @@ def calculate_probability(keywords):
     probability = (sum_ / Decimal(sum(tags_dict.values()))).quantize(Decimal('0.0000'))
     return float(probability * 100)
 
+r= lambda: random.randint(0,255)
 
 def cloud(code, keywords):
     """
@@ -101,23 +102,24 @@ def cloud(code, keywords):
                    height=300, max_font_size=80,
                    max_words=100)
     wc.generate_from_frequencies(keywords)
-    img = Image.new(mode="RGBA", size=(1500, 350), color=(255, 255, 255))
+    img = Image.new(mode="RGBA", size=(1400, 400), color=(255, 255, 255))
     tag_img = Image.open(fp=os.path.join(image_path, "Tags.png"))
     code_img = wc.to_image()
-    img.paste(tag_img, box=(100, 50))
-    img.paste(code_img, box=(800, 50))
+    img.paste(tag_img, box=(10, 100))
+    img.paste(code_img, box=(700, 100))
     draw = ImageDraw.Draw(img)
     font = ImageFont.truetype(font=font, size=42)
-    title = u"关\n键\n字\n词\n云\n对\n比\n"
+    title = u"关键字词云对比"
     tag_title = u"历史关键字词云"
     code_title = u"{}关键字词云".format(code)
-    draw.line(xy=[(95, 0), (95, 700)], width=1, fill=(0, 0, 0))
-    draw.line(xy=[(790, 0), (790, 700)], width=1, fill=(0, 0, 0))
-    draw.line(xy=[(95, 45), (1500, 45)], width=1, fill=(0, 0, 0))
-    draw.line(xy=[(95, 350), (1500, 350)], width=1, fill=(0, 0, 0))
-    draw.text(xy=(25, 25), text=title, font=font, fill=(255, 0, 0))
-    draw.text(xy=(300, 5), text=tag_title, font=font, fill=(255, 0, 0))
-    draw.text(xy=(1000, 5), text=code_title, font=font, fill=(255, 0, 0))
+    # draw.line(xy=[(95, 0), (95, 700)], width=1, fill=(0, 0, 0))
+    draw.line(xy=[(680, 45), (680, 700)], width=1, fill=(0, 0, 0))
+    draw.line(xy=[(0, 45), (1400, 45)], width=1, fill=(0, 0, 0))
+    draw.line(xy=[(0, 95), (1400, 95)], width=1, fill=(0, 0, 0))
+    # draw.line(xy=[(0, 350), (1400, 350)], width=1, fill=(0, 0, 0))
+    draw.text(xy=(500, 5), text=title, font=font, fill=(r(), r(), r()))
+    draw.text(xy=(200, 55), text=tag_title, font=font, fill=(r(), r(), r()))
+    draw.text(xy=(900, 55), text=code_title, font=font, fill=(r(), r(), r()))
     img.save(image)
 
 
