@@ -46,7 +46,7 @@ def get_major():
 
 @route(bp, '/warning/probability', methods=["GET"])
 def warning():
-    result = {"pro": 0.0,"url":""}
+    result = {"pro": 0.0, "url": ""}
     code = request.args.get("keyword", '600000')
     date = datetime.strftime(datetime.now() - timedelta(days=180), "%Y-%m-%d")
     qs = db.session.query(Sh_A_Share.title).filter(Sh_A_Share.bulletindate >= date,
@@ -57,7 +57,7 @@ def warning():
     if data:
         jieba.load_userdict(os.path.join(os.path.join(os.path.dirname(__file__), 'static'), 'CompanyName.txt'))
         analyse.set_stop_words(os.path.join(os.path.join(os.path.dirname(__file__), 'static'), 'StopWords.txt'))
-        cut_keyword = jieba.analyse.textrank(data, topK=100, withWeight=True, allowPOS=('n', 'g', 'an'))
+        cut_keyword = jieba.analyse.textrank(data, topK=100, withWeight=True, allowPOS=('n', 'g', 'a', 'ad', 'an'))
         keywords = dict()
         for key in cut_keyword:
             keywords[key[0]] = key[1]
@@ -85,7 +85,9 @@ def calculate_probability(keywords):
     probability = (sum_ / Decimal(sum(tags_dict.values()))).quantize(Decimal('0.0000'))
     return float(probability * 100)
 
-r= lambda: random.randint(0,255)
+
+r = lambda: random.randint(0, 255)
+
 
 def cloud(code, keywords):
     """
@@ -112,11 +114,9 @@ def cloud(code, keywords):
     title = u"关键字词云对比"
     tag_title = u"历史关键字词云"
     code_title = u"{}关键字词云".format(code)
-    # draw.line(xy=[(95, 0), (95, 700)], width=1, fill=(0, 0, 0))
     draw.line(xy=[(680, 45), (680, 700)], width=1, fill=(0, 0, 0))
     draw.line(xy=[(0, 45), (1400, 45)], width=1, fill=(0, 0, 0))
     draw.line(xy=[(0, 95), (1400, 95)], width=1, fill=(0, 0, 0))
-    # draw.line(xy=[(0, 350), (1400, 350)], width=1, fill=(0, 0, 0))
     draw.text(xy=(500, 5), text=title, font=font, fill=(r(), r(), r()))
     draw.text(xy=(200, 55), text=tag_title, font=font, fill=(r(), r(), r()))
     draw.text(xy=(900, 55), text=code_title, font=font, fill=(r(), r(), r()))
