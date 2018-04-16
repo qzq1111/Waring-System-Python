@@ -35,7 +35,7 @@ log.addHandler(h)
 
 
 def try_build_probability():
-    url = "http://127.0.0.1:81/api/test/"
+    url = "http://127.0.0.1:81/api/analysis/"
     res = urllib2.urlopen(url)
 
 

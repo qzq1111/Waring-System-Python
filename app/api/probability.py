@@ -1,4 +1,5 @@
 # coding:utf-8
+from app.api.analysis.NB import NBclassifier
 from .base import route
 from flask import Blueprint, request
 from ..entities.models import Sh_A_Share, db, Sh_Share_Warning
@@ -8,7 +9,7 @@ import jieba
 import os
 from decimal import Decimal
 
-service_name = 'test'
+service_name = 'analysis'
 bp = Blueprint(service_name, __name__, url_prefix="/api/" + service_name)
 
 
@@ -52,3 +53,46 @@ def pro():
         print(e)
 
     return "done"
+
+
+@route(bp, '/nbm', methods=["GET"])
+def analysis_test():
+    result = {"pro": 0.0, "data": []}
+    base = os.path.join(os.path.dirname(__file__), 'analysis')
+    nbclassifier = NBclassifier(clf_path=os.path.join(base, 'clf.m'), vec_path=os.path.join(base, 'vec.m'))
+    stop_words = [line.strip().decode('utf-8')
+                  for line in open(os.path.join(base, 'StopWords.txt'), 'r').readlines()]
+    code = request.args.get("keyword", '600004')
+    date = datetime.strftime(datetime.now() - timedelta(days=180), "%Y-%m-%d")
+    qs = db.session.query(Sh_A_Share).filter(Sh_A_Share.bulletindate >= date,
+                                             Sh_A_Share.stockcode == code).order_by(Sh_A_Share.bulletindate.desc())
+
+
+    testData = []
+    data = []
+    for line in qs:
+        lines = []
+        data.append(dict(code=line.stockcode, date=line.bulletindate.strftime('%Y-%m-%d'),
+                         name=line.stockname, title=line.title, url=line.url))
+        for word in jieba.cut(line.title):
+            if word in stop_words:
+                pass
+            else:
+                lines.append(word)
+        testData.append(' '.join(lines))
+    if testData:
+        predictList = nbclassifier.predictNB(testData)
+        # sum_ = 0
+        # for i in predictList:
+        #     if i == '1':
+        #         sum_ += 1
+        # probability = (Decimal(sum_) / Decimal(len(predictList))).quantize(Decimal('0.0000'))*100
+        # result["pro"] = float(probability)
+        for k, v in zip(data, predictList):
+            if v == '1':
+                k.update({"flag": "预警"})
+                result["data"].append(k)
+            else:
+                k.update({"flag": "不预警"})
+                result["data"].append(k)
+    return result
