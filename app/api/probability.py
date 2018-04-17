@@ -20,6 +20,11 @@ def pro():
     jieba.load_userdict(userdict)
     analyse.set_stop_words(os.path.join(path, 'StopWords.txt'))
     tagpath = os.path.join(path, "TexTrankTags.txt")
+
+    base = os.path.join(os.path.dirname(__file__), 'analysis')
+    nbclassifier = NBclassifier(clf_path=os.path.join(base, 'clf.m'), vec_path=os.path.join(base, 'vec.m'))
+    stop_words = [line.strip().decode('utf-8')
+                  for line in open(os.path.join(base, 'StopWords.txt'), 'r').readlines()]
     tag_dict = {}
     with open(tagpath, 'r') as f:
         for i in f.readlines():
@@ -31,20 +36,44 @@ def pro():
     code_list = map(lambda x: x.stockcode, qs_code)
     mappings = []
 
-    for i, code in enumerate(code_list):
+    for code in code_list:
         qs = db.session.query(Sh_A_Share.title).filter(Sh_A_Share.bulletindate >= date,
                                                        Sh_A_Share.stockcode == code
                                                        ).all()
         data = ''
+        testData = []
+        probability = 0
+        nbm = '0/0'
+        nbmprobability = 0
         for j in qs:
+            lines = []
+            for word in jieba.cut(j.title):
+                if word in stop_words:
+                    pass
+                else:
+                    lines.append(word)
+            testData.append(' '.join(lines))
             data = data + j.title + '\n'
-        tag_1 = jieba.analyse.textrank(data, topK=100, withWeight=False, allowPOS=('n', 'g', 'a', 'ad', 'an'))
-        sum_ = Decimal(0)
-        for tag in set(tag_1) & set(tag_dict.keys()):
-            sum_ += tag_dict[tag]
-        probability = (sum_ / sum(tag_dict.values())).quantize(Decimal('0.0000'))
-        probability = float(probability * 100)
-        mappings.append({"stockcode": code, "probability": probability})
+        if data:
+            tag_1 = jieba.analyse.textrank(data, topK=100, withWeight=False, allowPOS=('n', 'g', 'a', 'ad', 'an'))
+            sum_ = Decimal(0)
+            for tag in set(tag_1) & set(tag_dict.keys()):
+                sum_ += tag_dict[tag]
+            probability = (sum_ / sum(tag_dict.values())).quantize(Decimal('0.0000'))
+            probability = float(probability * 100)
+        if testData:
+            predictList = nbclassifier.predictNB(testData)
+            sum_ = 0
+            for num in predictList:
+                if num == '1':
+                    sum_ += 1
+            flag = len(predictList) - sum_
+            nbm = str(sum_) + '/' + str(flag)
+            if flag == 0:
+                nbmprobability = sum_
+            else:
+                nbmprobability = (Decimal(sum_) / Decimal(flag)).quantize(Decimal('0.0000'))
+        mappings.append({"stockcode": code, "probability": probability, "nbm": nbm, "nbmprobability": nbmprobability})
 
     try:
         db.session.bulk_update_mappings(Sh_Share_Warning, mappings)
@@ -66,7 +95,6 @@ def analysis_test():
     date = datetime.strftime(datetime.now() - timedelta(days=180), "%Y-%m-%d")
     qs = db.session.query(Sh_A_Share).filter(Sh_A_Share.bulletindate >= date,
                                              Sh_A_Share.stockcode == code).order_by(Sh_A_Share.bulletindate.desc())
-
 
     testData = []
     data = []

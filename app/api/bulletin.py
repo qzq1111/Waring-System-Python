@@ -128,5 +128,5 @@ def warning_list():
     result = {"data": []}
     qs = db.session.query(Sh_Share_Warning).order_by(Sh_Share_Warning.probability.desc()).slice(0, 20).all()
     result["data"] = map(lambda i: {"stockcode": i.stockcode,
-                                    "name": i.stockname, "probability": float(i.probability)}, qs)
+                                    "name": i.stockname, "probability": float(i.probability),"nbm":i.nbm}, qs)
     return result
