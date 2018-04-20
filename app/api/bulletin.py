@@ -126,7 +126,10 @@ def cloud(code, keywords):
 @route(bp, '/warning/list', methods=["GET"])
 def warning_list():
     result = {"data": []}
-    qs = db.session.query(Sh_Share_Warning).order_by(Sh_Share_Warning.probability.desc()).slice(0, 20).all()
+    qs = db.session.query(Sh_Share_Warning).filter(
+        Sh_Share_Warning.total >= 60,
+        Sh_Share_Warning.nbmprobability >= 1
+    ).order_by(Sh_Share_Warning.probability.desc()).slice(0, 20).all()
     result["data"] = map(lambda i: {"stockcode": i.stockcode,
                                     "name": i.stockname, "probability": float(i.probability),"nbm":i.nbm}, qs)
     return result

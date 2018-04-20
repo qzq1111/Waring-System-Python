@@ -45,6 +45,7 @@ def pro():
         probability = 0
         nbm = '0/0'
         nbmprobability = 0
+        total = 0
         for j in qs:
             lines = []
             for word in jieba.cut(j.title):
@@ -59,8 +60,8 @@ def pro():
             sum_ = Decimal(0)
             for tag in set(tag_1) & set(tag_dict.keys()):
                 sum_ += tag_dict[tag]
-            probability = (sum_ / sum(tag_dict.values())).quantize(Decimal('0.0000'))
-            probability = float(probability * 100)
+            probability = ((sum_ / sum(tag_dict.values()))*100).quantize(Decimal('0.0000'))
+            probability = float(probability )
         if testData:
             predictList = nbclassifier.predictNB(testData)
             sum_ = 0
@@ -68,12 +69,14 @@ def pro():
                 if num == '1':
                     sum_ += 1
             flag = len(predictList) - sum_
+            total = len(predictList)
             nbm = str(sum_) + '/' + str(flag)
             if flag == 0:
                 nbmprobability = sum_
             else:
                 nbmprobability = (Decimal(sum_) / Decimal(flag)).quantize(Decimal('0.0000'))
-        mappings.append({"stockcode": code, "probability": probability, "nbm": nbm, "nbmprobability": nbmprobability})
+        mappings.append({"stockcode": code, "probability": probability, "nbm": nbm, "nbmprobability": nbmprobability,
+                         "total": total})
 
     try:
         db.session.bulk_update_mappings(Sh_Share_Warning, mappings)
